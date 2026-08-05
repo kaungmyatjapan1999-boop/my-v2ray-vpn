@@ -25,14 +25,12 @@ class _VpnHomeState extends State<VpnHome> {
       isConnected = s.state == "connected";
     }));
     v2ray.initializeV2Ray();
-    _loadStoredConfig();
+    _loadConfig();
   }
 
-  Future<void> _loadStoredConfig() async {
+  Future<void> _loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      savedConfig = prefs.getString('v2ray_config') ?? "";
-    });
+    setState(() => savedConfig = prefs.getString('v2ray_config') ?? "");
   }
 
   Future<void> updateConfig() async {
@@ -42,17 +40,10 @@ class _VpnHomeState extends State<VpnHome> {
       if (r.statusCode == 200) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('v2ray_config', r.body.trim());
-        setState(() {
-          savedConfig = r.body.trim();
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Config Updated Successfully")));
-        }
+        setState(() => savedConfig = r.body.trim());
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Update Failed")));
-      }
+      print(e);
     }
   }
 
@@ -60,14 +51,9 @@ class _VpnHomeState extends State<VpnHome> {
     if (isConnected) {
       v2ray.stopV2Ray();
     } else {
-      if (savedConfig.isEmpty) {
-        await updateConfig();
-      }
+      if (savedConfig.isEmpty) await updateConfig();
       if (savedConfig.isNotEmpty && await v2ray.requestPermission()) {
-        v2ray.startV2Ray(
-          remark: "Premium Server",
-          config: savedConfig.split('\n')[0].trim(),
-        );
+        v2ray.startV2Ray(remark: "Server", config: savedConfig.split('\n')[0].trim());
       }
     }
   }
@@ -76,44 +62,24 @@ class _VpnHomeState extends State<VpnHome> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1B4E9B),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.sync, color: Colors.white),
-            onPressed: updateConfig,
-          ),
-        ],
-      ),
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, actions: [
+        IconButton(icon: const Icon(Icons.sync, color: Colors.white), onPressed: updateConfig)
+      ]),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text("V2RAY CONNECT", 
-              style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            Text(savedConfig.isEmpty ? "No Config Loaded" : "Offline Config Ready", 
-              style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            const SizedBox(height: 60),
-            GestureDetector(
-              onTap: toggleVpn,
-              child: Container(
-                padding: const EdgeInsets.all(30),
-                decoration: BoxDecoration(
-                  color: isConnected ? Colors.green : Colors.white24,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
-                ),
-                child: const Icon(Icons.power_settings_new, size: 80, color: Colors.white),
-              ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Text("V2RAY CONNECT", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 60),
+          GestureDetector(
+            onTap: toggleVpn,
+            child: Container(
+              padding: const EdgeInsets.all(30),
+              decoration: BoxDecoration(color: isConnected ? Colors.green : Colors.white24, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3)),
+              child: const Icon(Icons.power_settings_new, size: 80, color: Colors.white),
             ),
-            const SizedBox(height: 40),
-            Text(status, 
-              style: const TextStyle(color: Colors.white, letterSpacing: 2, fontWeight: FontWeight.bold)),
-          ],
-        ),
+          ),
+          const SizedBox(height: 40),
+          Text(status, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ]),
       ),
     );
   }
