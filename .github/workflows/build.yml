@@ -4,7 +4,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.13.0'
@@ -15,7 +15,7 @@ jobs:
           echo "android.enableJetifier=true" >> android/gradle.properties
       - run: flutter build apk --release --no-tree-shake-icons
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: my-vpn-release
+          name: vpn-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
