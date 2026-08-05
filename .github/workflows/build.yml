@@ -9,9 +9,13 @@ jobs:
         with:
           channel: 'stable'
       - run: flutter pub get
+      - run: |
+          # SDK လမ်းကြောင်းများကို အလိုအလျောက် သတ်မှတ်ခြင်း
+          echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
+          echo "sdk.dir=$ANDROID_SDK_ROOT" >> android/local.properties
       - run: flutter build apk --release --no-tree-shake-icons
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: vpn-api36-release
+          name: vpn-working-release
           path: build/app/outputs/flutter-apk/app-release.apk
