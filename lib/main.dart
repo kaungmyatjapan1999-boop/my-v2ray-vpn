@@ -17,6 +17,7 @@ class _VpnHomeState extends State<VpnHome> {
   String status = "DISCONNECTED";
   List<String> servers = [];
   int selectedIndex = 0;
+  String notice = "Select a server and tap Power";
 
   @override
   void initState() {
@@ -31,12 +32,11 @@ class _VpnHomeState extends State<VpnHome> {
 
   Future<void> _loadStoredServers() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      servers = prefs.getStringList('server_list') ?? [];
-    });
+    setState(() => servers = prefs.getStringList('server_list') ?? []);
   }
 
   Future<void> updateConfig() async {
+    setState(() => notice = "Updating servers...");
     try {
       final url = 'https://gist.githubusercontent.com/kaungmyatjapan1999-boop/e1f6ac00358d042d58d49a8547eccc9b/raw/config.txt';
       final r = await http.get(Uri.parse(url));
@@ -44,10 +44,13 @@ class _VpnHomeState extends State<VpnHome> {
         List<String> fetched = r.body.split('\n').where((s) => s.contains('://')).toList();
         final prefs = await SharedPreferences.getInstance();
         await prefs.setStringList('server_list', fetched);
-        setState(() => servers = fetched);
+        setState(() {
+          servers = fetched;
+          notice = "Update Success!";
+        });
       }
     } catch (e) {
-      print(e);
+      setState(() => notice = "Update Failed!");
     }
   }
 
@@ -55,9 +58,19 @@ class _VpnHomeState extends State<VpnHome> {
     if (isConnected) {
       v2ray.stopV2Ray();
     } else {
-      if (servers.isEmpty) await updateConfig();
-      if (servers.isNotEmpty && await v2ray.requestPermission()) {
-        v2ray.startV2Ray(remark: "Server ${selectedIndex + 1}", config: servers[selectedIndex].trim());
+      if (servers.isEmpty) {
+        setState(() => notice = "No servers! Tap Sync.");
+        return;
+      }
+      setState(() => notice = "Requesting Permission...");
+      bool hasPermission = await v2ray.requestPermission();
+      if (hasPermission) {
+        v2ray.startV2Ray(
+          remark: "Server ${selectedIndex + 1}",
+          config: servers[selectedIndex].trim(),
+        );
+      } else {
+        setState(() => notice = "Permission Denied!");
       }
     }
   }
@@ -77,20 +90,22 @@ class _VpnHomeState extends State<VpnHome> {
         children: [
           const SizedBox(height: 20),
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: toggleVpn,
             child: Container(
-              padding: const EdgeInsets.all(25),
+              padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
                 color: isConnected ? Colors.green : Colors.white24,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 3),
               ),
-              child: const Icon(Icons.power_settings_new, size: 70, color: Colors.white),
+              child: const Icon(Icons.power_settings_new, size: 80, color: Colors.white),
             ),
           ),
           const SizedBox(height: 15),
-          Text(status, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
+          Text(status, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2)),
+          Text(notice, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 25),
           Expanded(
             child: Container(
               decoration: const BoxDecoration(
@@ -98,9 +113,9 @@ class _VpnHomeState extends State<VpnHome> {
                 borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
               ),
               child: servers.isEmpty
-                  ? const Center(child: Text("Tap Sync to load servers"))
+                  ? const Center(child: Text("No servers loaded. Tap Sync."))
                   : ListView.builder(
-                      padding: const EdgeInsets.all(15),
+                      padding: const EdgeInsets.all(20),
                       itemCount: servers.length,
                       itemBuilder: (context, index) {
                         return Card(
