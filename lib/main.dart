@@ -15,7 +15,8 @@ class _VpnHomeState extends State<VpnHome> {
   late FlutterV2ray v2ray;
   bool isConnected = false;
   String status = "DISCONNECTED";
-  String info = "Tap Refresh to Load Servers";
+  List<String> servers = [];
+  int selectedIndex = 0;
 
   @override
   void initState() {
@@ -25,45 +26,38 @@ class _VpnHomeState extends State<VpnHome> {
       isConnected = s.state == "connected";
     }));
     v2ray.initializeV2Ray();
-    _loadConfig();
+    _loadStoredServers();
   }
 
-  Future<void> _loadConfig() async {
+  Future<void> _loadStoredServers() async {
     final prefs = await SharedPreferences.getInstance();
-    String? cfg = prefs.getString('v2ray_config');
-    if (cfg != null) setState(() => info = "Config Ready (Offline)");
+    setState(() {
+      servers = prefs.getStringList('server_list') ?? [];
+    });
   }
 
   Future<void> updateConfig() async {
-    setState(() => info = "Fetching servers...");
     try {
       final url = 'https://gist.githubusercontent.com/kaungmyatjapan1999-boop/e1f6ac00358d042d58d49a8547eccc9b/raw/config.txt';
       final r = await http.get(Uri.parse(url));
-      if (r.statusCode == 200 && r.body.contains("vless://")) {
+      if (r.statusCode == 200) {
+        List<String> fetched = r.body.split('\n').where((s) => s.contains('://')).toList();
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('v2ray_config', r.body.trim());
-        setState(() => info = "Update Success!");
-      } else {
-        setState(() => info = "Invalid Config from Link");
+        await prefs.setStringList('server_list', fetched);
+        setState(() => servers = fetched);
       }
     } catch (e) {
-      setState(() => info = "Network Error: ${e.toString()}");
+      print(e);
     }
   }
 
   void toggleVpn() async {
-    final prefs = await SharedPreferences.getInstance();
-    String cfg = prefs.getString('v2ray_config') ?? "";
-    
     if (isConnected) {
       v2ray.stopV2Ray();
     } else {
-      if (cfg.isEmpty) {
-        await updateConfig();
-        return;
-      }
-      if (await v2ray.requestPermission()) {
-        v2ray.startV2Ray(remark: "Premium Server", config: cfg.split('\n')[0].trim());
+      if (servers.isEmpty) await updateConfig();
+      if (servers.isNotEmpty && await v2ray.requestPermission()) {
+        v2ray.startV2Ray(remark: "Server ${selectedIndex + 1}", config: servers[selectedIndex].trim());
       }
     }
   }
@@ -72,26 +66,57 @@ class _VpnHomeState extends State<VpnHome> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1B4E9B),
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, actions: [
-        IconButton(icon: const Icon(Icons.sync, color: Colors.white), onPressed: updateConfig)
-      ]),
-      body: Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Text("V2RAY CONNECT", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          Text(info, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          const SizedBox(height: 60),
+      appBar: AppBar(
+        title: const Text("V2RAY CONNECT"),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        actions: [IconButton(icon: const Icon(Icons.sync), onPressed: updateConfig)],
+      ),
+      body: Column(
+        children: [
+          const SizedBox(height: 20),
           GestureDetector(
             onTap: toggleVpn,
             child: Container(
-              padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(color: isConnected ? Colors.green : Colors.white24, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3)),
-              child: const Icon(Icons.power_settings_new, size: 80, color: Colors.white),
+              padding: const EdgeInsets.all(25),
+              decoration: BoxDecoration(
+                color: isConnected ? Colors.green : Colors.white24,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 3),
+              ),
+              child: const Icon(Icons.power_settings_new, size: 70, color: Colors.white),
             ),
           ),
-          const SizedBox(height: 40),
-          Text(status, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2)),
-        ]),
+          const SizedBox(height: 15),
+          Text(status, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          Expanded(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+              ),
+              child: servers.isEmpty
+                  ? const Center(child: Text("Tap Sync to load servers"))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(15),
+                      itemCount: servers.length,
+                      itemBuilder: (context, index) {
+                        return Card(
+                          color: selectedIndex == index ? Colors.blue[50] : Colors.white,
+                          child: ListTile(
+                            leading: Icon(Icons.dns, color: selectedIndex == index ? Colors.blue : Colors.grey),
+                            title: Text("Server ${index + 1}"),
+                            trailing: selectedIndex == index ? const Icon(Icons.check_circle, color: Colors.blue) : null,
+                            onTap: () => setState(() => selectedIndex = index),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
