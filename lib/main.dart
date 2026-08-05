@@ -15,7 +15,7 @@ class _VpnHomeState extends State<VpnHome> {
   late FlutterV2ray v2ray;
   bool isConnected = false;
   String status = "DISCONNECTED";
-  String savedConfig = "";
+  String info = "Tap Refresh to Load Servers";
 
   @override
   void initState() {
@@ -30,30 +30,40 @@ class _VpnHomeState extends State<VpnHome> {
 
   Future<void> _loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => savedConfig = prefs.getString('v2ray_config') ?? "");
+    String? cfg = prefs.getString('v2ray_config');
+    if (cfg != null) setState(() => info = "Config Ready (Offline)");
   }
 
   Future<void> updateConfig() async {
+    setState(() => info = "Fetching servers...");
     try {
       final url = 'https://gist.githubusercontent.com/kaungmyatjapan1999-boop/e1f6ac00358d042d58d49a8547eccc9b/raw/config.txt';
       final r = await http.get(Uri.parse(url));
-      if (r.statusCode == 200) {
+      if (r.statusCode == 200 && r.body.contains("vless://")) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('v2ray_config', r.body.trim());
-        setState(() => savedConfig = r.body.trim());
+        setState(() => info = "Update Success!");
+      } else {
+        setState(() => info = "Invalid Config from Link");
       }
     } catch (e) {
-      print(e);
+      setState(() => info = "Network Error: ${e.toString()}");
     }
   }
 
   void toggleVpn() async {
+    final prefs = await SharedPreferences.getInstance();
+    String cfg = prefs.getString('v2ray_config') ?? "";
+    
     if (isConnected) {
       v2ray.stopV2Ray();
     } else {
-      if (savedConfig.isEmpty) await updateConfig();
-      if (savedConfig.isNotEmpty && await v2ray.requestPermission()) {
-        v2ray.startV2Ray(remark: "Server", config: savedConfig.split('\n')[0].trim());
+      if (cfg.isEmpty) {
+        await updateConfig();
+        return;
+      }
+      if (await v2ray.requestPermission()) {
+        v2ray.startV2Ray(remark: "Premium Server", config: cfg.split('\n')[0].trim());
       }
     }
   }
@@ -68,6 +78,8 @@ class _VpnHomeState extends State<VpnHome> {
       body: Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Text("V2RAY CONNECT", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          Text(info, style: const TextStyle(color: Colors.white70, fontSize: 12)),
           const SizedBox(height: 60),
           GestureDetector(
             onTap: toggleVpn,
@@ -78,7 +90,7 @@ class _VpnHomeState extends State<VpnHome> {
             ),
           ),
           const SizedBox(height: 40),
-          Text(status, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text(status, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2)),
         ]),
       ),
     );
