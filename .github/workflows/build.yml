@@ -9,27 +9,29 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Create Android Project
+      - name: Recreate Android Project
         run: |
-          flutter create . --platforms android --org com.example --package-name vpn_app
+          flutter create . --platforms android --org com.kaungmyat.vpn
           
-      - name: Configure SDK Versions
+      - name: Set SDK and Background Stability
         run: |
-          find android -name "build.gradle" -exec sed -i 's/minSdkVersion [0-9]*/minSdkVersion 21/g' {} +
+          # Set SDK Versions for Android 16
           find android -name "build.gradle" -exec sed -i 's/compileSdkVersion [0-9]*/compileSdkVersion 35/g' {} +
           find android -name "build.gradle" -exec sed -i 's/targetSdkVersion [0-9]*/targetSdkVersion 35/g' {} +
-
-      - name: Set Android Permissions
-        run: |
+          find android -name "build.gradle" -exec sed -i 's/minSdkVersion [0-9]*/minSdkVersion 21/g' {} +
+          
+          # Foreground Service permissions for Background stability
           cat <<EOM > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.vpn_app">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
               <application android:label="V2RayVPN" android:icon="@mipmap/ic_launcher">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
+                      android:launchMode="singleTop"
                       android:theme="@android:style/Theme.NoTitleBar"
                       android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
                       android:hardwareAccelerated="true"
@@ -50,5 +52,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: vpn-working-apk
+          name: vpn-ultimate-release
           path: build/app/outputs/flutter-apk/app-release.apk
